@@ -1,0 +1,36 @@
+name: Sync Fedora freetype f44
+
+on:
+  schedule:
+    - cron: "17 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install sync tools
+        run: sudo apt-get update && sudo apt-get install -y rsync
+
+      - name: Sync Fedora f44 packaging
+        run: ./scripts/sync-fedora-f44.sh
+
+      - name: Commit changes
+        run: |
+          if git diff --quiet; then
+            echo "No Fedora packaging changes."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Sync Fedora f44 freetype packaging"
+          git push
