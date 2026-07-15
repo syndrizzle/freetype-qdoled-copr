@@ -231,7 +231,7 @@ rm -f $RPM_BUILD_ROOT%{_libdir}/*.{a,la}
 %{_mandir}/man1/*
 
 %changelog
-* Tue Jul 14 2026 Syn <syn@localhost> - 2.14.3-1.qdoled.1
+* Wed Jul 15 2026 Syn <syn@localhost> - 2.14.3-1.qdoled.1
 - Disable ClearType-style subpixel rendering patch for Harmony LCD geometry
 - Add Gen 3 QD-OLED Harmony geometry for AW2725D-class panels
 
