@@ -5,7 +5,8 @@ index f0acc1ea4..5f163505a 100644
 @@ -95,12 +95,12 @@
  
  
-     /* set up default subpixel geometry for striped RGB panels. */
+-    /* set up default subpixel geometry for striped RGB panels. */
++    /* Experimental Gen 3 QD-OLED geometry, RGB order, positive y upwards. */
 -    sub[0].x = -21;
 -    sub[0].y = 0;
 -    sub[1].x = 0;

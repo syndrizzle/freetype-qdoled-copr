@@ -1,0 +1,52 @@
+name: Sync Fedora freetype
+
+on:
+  schedule:
+    # Polling is cheap; unchanged packaging never produces a commit or COPR build.
+    - cron: "17 4 * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['scripts/**', '.copr/**', '*.spec', '*.patch', 'sources', 'ftconfig.h', '.fedora-files', 'qdoled-release.json', '.github/workflows/sync-fedora.yml']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-fedora-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Run sync regression tests
+        run: python3 -m unittest discover -s tests -v
+      - name: Sync Fedora packaging
+        run: ./scripts/sync-fedora.sh
+      - name: Commit packaging changes
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import subprocess
+          current = set(Path('.fedora-files').read_text().splitlines())
+          previous = set(subprocess.check_output(['git', 'show', 'HEAD:.fedora-files'], text=True).splitlines())
+          subprocess.run(['git', 'add', '--', '.fedora-files', *sorted(current | previous)], check=True)
+          PY
+          if git diff --cached --quiet; then
+            echo "No Fedora packaging changes to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Sync Fedora freetype packaging"
+          git push origin HEAD:main
+      - name: Publish changed COPR build inputs
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          python3 scripts/publish-copr.py

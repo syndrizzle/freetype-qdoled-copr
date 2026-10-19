@@ -1,0 +1,7 @@
+freetype-2.10.0-internal-outline.patch
+freetype-2.2.1-enable-valid.patch
+freetype-2.6.5-libtool.patch
+freetype-2.8-multilib.patch
+freetype.spec
+ftconfig.h
+sources

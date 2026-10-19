@@ -3,7 +3,7 @@
 
 Name: freetype
 Version: 2.14.3
-Release: 1.qdoled.1%{?dist}
+Release: 2.qdoled.2%{?dist}
 Summary: A free and portable font rendering engine
 License: (FTL OR GPL-2.0-or-later) AND BSD-3-Clause AND MIT AND MIT-Modern-Variant AND LicenseRef-Fedora-Public-Domain AND Zlib
 URL: http://www.freetype.org
@@ -12,13 +12,8 @@ Source1: https://download-mirror.savannah.gnu.org/releases/freetype/freetype-doc
 Source2: https://download-mirror.savannah.gnu.org/releases/freetype/ft2demos-%{version}.tar.xz
 Source3: ftconfig.h
 
-# Fedora ClearType-style subpixel rendering patch is intentionally not
-# applied in this build. QD-OLED Gen 3 geometry uses FreeType Harmony,
-# which is compiled only when FT_CONFIG_OPTION_SUBPIXEL_RENDERING is undefined.
 # Enable otvalid and gxvalid modules
 Patch1:  freetype-2.2.1-enable-valid.patch
-# Enable additional demos
-Patch2:  freetype-2.5.2-more-demos.patch
 
 Patch3:  freetype-2.6.5-libtool.patch
 
@@ -26,8 +21,8 @@ Patch4:  freetype-2.8-multilib.patch
 
 Patch5:  freetype-2.10.0-internal-outline.patch
 
-# Set FreeType Harmony LCD geometry for 27-inch Gen 3 QD-OLED panels.
-Patch100:  freetype-qdoled-gen3-harmony.patch
+# Use Harmony; do not enable FT_CONFIG_OPTION_SUBPIXEL_RENDERING.
+Patch100: freetype-qdoled-gen3-harmony.patch
 
 BuildRequires: gcc
 BuildRequires: libX11-devel
@@ -82,13 +77,10 @@ FreeType.
 
 %patch 1  -p1 -b .enable-valid
 
-pushd ft2demos-%{version}
-%patch 2  -p1 -b .more-demos
-popd
-
 %patch 3 -p1 -b .libtool
 %patch 4 -p1 -b .multilib
 %patch 5 -p1 -b .internal-outline
+
 %patch 100 -p1 -b .qdoled-gen3-harmony
 
 %build
@@ -115,30 +107,18 @@ make TOP_DIR=".."
 popd
 %endif
 
-# Convert FTL.txt and example3.cpp to UTF-8
-pushd docs
-iconv -f latin1 -t utf-8 < FTL.TXT > FTL.TXT.tmp && \
-touch -r FTL.TXT FTL.TXT.tmp && \
-mv FTL.TXT.tmp FTL.TXT
-
-iconv -f iso-8859-1 -t utf-8 < "tutorial/example3.cpp" > "tutorial/example3.cpp.utf8"
-touch -r tutorial/example3.cpp tutorial/example3.cpp.utf8 && \
-mv tutorial/example3.cpp.utf8 tutorial/example3.cpp
-popd
-
-
 %install
 
 %make_install gnulocaledir=$RPM_BUILD_ROOT%{_datadir}/locale
 
 {
-  for ftdemo in ftbench ftchkwd ftmemchk ftpatchk fttimer ftdump ftlint ftvalid ; do
+  for ftdemo in ftbench ftdump ftlint ftvalid ttdebug ; do
       builds/unix/libtool --mode=install install -m 755 ft2demos-%{version}/bin/$ftdemo $RPM_BUILD_ROOT/%{_bindir}
   done
 }
 %if %{with_xfree86}
 {
-  for ftdemo in ftdiff ftgamma ftgrid ftmulti ftstring fttimer ftview ; do
+  for ftdemo in ftdiff ftgamma ftgrid ftmulti ftsdf ftstring ftview ; do
       builds/unix/libtool --mode=install install -m 755 ft2demos-%{version}/bin/$ftdemo $RPM_BUILD_ROOT/%{_bindir}
   done
 }
@@ -146,13 +126,13 @@ popd
 
 # man pages for freetype-demos
 {
-  for ftdemo in ftbench ftdump ftlint ftvalid ; do
+  for ftdemo in ftbench ftdump ftlint ftvalid ttdebug ; do
       builds/unix/libtool --mode=install install -m 644 ft2demos-%{version}/man/${ftdemo}.1 $RPM_BUILD_ROOT/%{_mandir}/man1
   done
 }
 %if %{with_xfree86}
 {
-  for ftdemo in ftdiff ftgamma ftgrid ftmulti ftstring ftview ; do
+  for ftdemo in ftdiff ftgamma ftgrid ftmulti ftsdf ftstring ftview ; do
       builds/unix/libtool --mode=install install -m 644 ft2demos-%{version}/man/${ftdemo}.1 $RPM_BUILD_ROOT/%{_mandir}/man1
   done
 }
@@ -189,28 +169,28 @@ rm -f $RPM_BUILD_ROOT%{_libdir}/*.{a,la}
 
 %files demos
 %{_bindir}/ftbench
-%{_bindir}/ftchkwd
-%{_bindir}/ftmemchk
-%{_bindir}/ftpatchk
-%{_bindir}/fttimer
 %{_bindir}/ftdump
 %{_bindir}/ftlint
 %{_bindir}/ftvalid
+%{_bindir}/ttdebug
 %{_mandir}/man1/ftbench.1.gz
 %{_mandir}/man1/ftdump.1.gz
 %{_mandir}/man1/ftlint.1.gz
 %{_mandir}/man1/ftvalid.1.gz
+%{_mandir}/man1/ttdebug.1.gz
 %if %{with_xfree86}
 %{_bindir}/ftdiff
 %{_bindir}/ftgamma
 %{_bindir}/ftgrid
 %{_bindir}/ftmulti
+%{_bindir}/ftsdf
 %{_bindir}/ftstring
 %{_bindir}/ftview
 %{_mandir}/man1/ftdiff.1.gz
 %{_mandir}/man1/ftgamma.1.gz
 %{_mandir}/man1/ftgrid.1.gz
 %{_mandir}/man1/ftmulti.1.gz
+%{_mandir}/man1/ftsdf.1.gz
 %{_mandir}/man1/ftstring.1.gz
 %{_mandir}/man1/ftview.1.gz
 %endif
@@ -231,13 +211,22 @@ rm -f $RPM_BUILD_ROOT%{_libdir}/*.{a,la}
 %{_mandir}/man1/*
 
 %changelog
-* Sun Oct 18 2026 Syn <syn@localhost> - 2.14.3-1.qdoled.1
-- Disable ClearType-style subpixel rendering patch for Harmony LCD geometry
-- Add Gen 3 QD-OLED Harmony geometry for AW2725D-class panels
+* Mon Oct 19 2026 Syn <syn@localhost> - 2.14.3-2.qdoled.2
+- Use Harmony with experimental Gen 3 QD-OLED geometry
+
+* Wed Jul 15 2026 Fedora Release Engineering <releng@fedoraproject.org> - 2.14.3-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_45_Mass_Rebuild
 
 * Mon Apr 13 2026 Marek Kasik <mkasik@redhat.com> - 2.14.3-1
 - Update to 2.14.3
 - Resolves: #2443653
+
+* Thu Feb 19 2026 Alexei Podtelezhnikov <apodtele@gmail.com> - 2.14.1-3
+- Various spec fixes:
+-   * Remove redundant UTF-8 conversions
+-   * Do not build outdated demos
+-   * Build ftsdf and ttdebug demos
+- Resolves: #2440529
 
 * Fri Jan 16 2026 Fedora Release Engineering <releng@fedoraproject.org> - 2.14.1-2
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_44_Mass_Rebuild

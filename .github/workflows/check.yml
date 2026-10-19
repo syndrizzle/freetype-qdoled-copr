@@ -1,0 +1,20 @@
+name: Check packaging automation
+
+on:
+  pull_request:
+    paths: ['scripts/**', 'tests/**', '.github/workflows/**', '.copr/**', '*.spec', '*.patch', 'sources', '.fedora-files', 'qdoled-release.json']
+  push:
+    branches: [main]
+    paths: ['scripts/**', 'tests/**', '.github/workflows/**', '.copr/**', '*.spec', '*.patch', 'sources', '.fedora-files', 'qdoled-release.json']
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash -n scripts/sync-fedora.sh
+      - run: python3 -m unittest discover -s tests -v
