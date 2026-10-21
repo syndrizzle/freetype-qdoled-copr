@@ -59,6 +59,10 @@ the build-branch push.
 `scripts/build-srpm.py` checks every downloaded archive against Fedora's SHA512
 `sources` manifest before invoking `rpmbuild`. An optional content-addressed
 cache avoids downloading the same archives for repeated local SRPM builds.
+The Makefile installs Python only when it is missing: COPR's minimal SRPM
+buildroot does not provide it, and the spec's `BuildRequires` are installed
+later for binary builds. The source-build CI check starts without Python and
+exercises this same Makefile entry point.
 
 ## Migrate an existing COPR project
 

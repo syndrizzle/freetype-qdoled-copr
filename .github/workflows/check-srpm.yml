@@ -1,0 +1,27 @@
+name: Check COPR source bootstrap
+
+on:
+  pull_request:
+    paths: ['.copr/**', 'scripts/build-srpm.py', 'tests/check-srpm-bootstrap.sh', '*.spec', '*.patch', 'sources', 'ftconfig.h', '.github/workflows/check-srpm.yml']
+  push:
+    branches: [main]
+    paths: ['.copr/**', 'scripts/build-srpm.py', 'tests/check-srpm-bootstrap.sh', '*.spec', '*.patch', 'sources', 'ftconfig.h', '.github/workflows/check-srpm.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  source-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        fedora: ['44', '45']
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build SRPM from a root without Python
+        run: |
+          docker run --rm -v "$GITHUB_WORKSPACE:/work:ro" \
+            registry.fedoraproject.org/fedora:${{ matrix.fedora }} \
+            bash /work/tests/check-srpm-bootstrap.sh

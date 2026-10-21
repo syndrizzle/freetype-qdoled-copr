@@ -1,9 +1,11 @@
 import hashlib
 import importlib.util
 import json
+import os
 from datetime import datetime
 from pathlib import Path
 import subprocess
+import shutil
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -176,6 +178,45 @@ class SourceTests(unittest.TestCase):
                      f"SHA512 (archive) = {'0' * 128}\n" * 2]:
             with self.subTest(text=text), self.assertRaises(ValueError):
                 srpm.manifest_checksums(text)
+
+
+class SrpmBootstrapTests(unittest.TestCase):
+    def test_minimal_copr_root_installs_python_before_running_helper(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            repo = root / "repo"
+            (repo / ".copr").mkdir(parents=True)
+            (repo / "scripts").mkdir()
+            shutil.copyfile(ROOT / ".copr/Makefile", repo / ".copr/Makefile")
+            (repo / "scripts/build-srpm.py").write_text(
+                '#!/bin/sh\nprintf "%s\\n" "$@" >> "$BUILD_LOG"\n')
+            stub_bin = root / "bin"
+            stub_bin.mkdir()
+            python_stub = root / "python-stub"
+            python_stub.write_text('#!/bin/sh\nexec /bin/sh "$@"\n')
+            python_stub.chmod(0o755)
+            dnf = stub_bin / "dnf"
+            dnf.write_text('#!/bin/sh\n'
+                           'printf "%s\\n" "$*" >> "$INSTALL_LOG"\n'
+                           'if [ "${INSTALL_FAIL:-0}" = 1 ]; then exit 1; fi\n'
+                           '/usr/bin/cp "$PYTHON_STUB" "$STUB_BIN/python3"\n')
+            dnf.chmod(0o755)
+            env = dict(os.environ, PATH=str(stub_bin), PYTHON_STUB=str(python_stub),
+                       STUB_BIN=str(stub_bin), INSTALL_LOG=str(root / "install.log"),
+                       BUILD_LOG=str(root / "build.log"))
+            command = [shutil.which("make"), "-f", str(repo / ".copr/Makefile"),
+                       "srpm", f"spec={repo}/freetype.spec", f"outdir={root}/out"]
+            # PATH intentionally contains no Python, matching the supplied COPR log.
+            subprocess.run(command, env=env, check=True, capture_output=True)
+            self.assertEqual((root / "install.log").read_text(), "-y install python3\n")
+            self.assertIn(str(repo / "freetype.spec"), (root / "build.log").read_text())
+            subprocess.run(command, env=env, check=True, capture_output=True)
+            self.assertEqual((root / "install.log").read_text(), "-y install python3\n")
+            (stub_bin / "python3").unlink()
+            (root / "build.log").unlink()
+            result = subprocess.run(command, env=dict(env, INSTALL_FAIL="1"), capture_output=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertFalse((root / "build.log").exists())
 
 
 class PublishTests(unittest.TestCase):
